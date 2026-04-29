@@ -12,37 +12,47 @@ class SummaryScreen extends StatefulWidget {
 
   @override
   State<SummaryScreen> createState() => _SummaryScreenState();
+
 }
 
-class _SummaryScreenState extends State<SummaryScreen> {
+
+class _SummaryScreenState extends State<SummaryScreen>{
   @override
-  void initState() {
+  void initState(){
     super.initState();
     //Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
 
     @override
     void initState() {
       super.initState();
-      Future.microtask(
-        () => context.read<TransactionProvider>().loadTransactions(),
+      Future.microtask(() =>
+      context.read<TransactionProvider>().loadTransactions()
       );
     }
+
+
   }
 
+  
   @override
   Widget build(BuildContext context) {
+    
     //final transactionProvider = Provider.of<TransactionProvider>(context);
     //final transactions = context.watch<TransactionProvider>().transactions;
 
+
     final transactions = context.watch<TransactionProvider>().transactions;
+    
 
     final totalIncome = transactions
-        .where((transaction) => transaction.type == TransactionType.income)
-        .fold(0.0, (sum, transaction) => sum + transaction.amount);
+      .where((transaction) => transaction.type == TransactionType.income)
+      .fold(0.0, (sum, transaction) => sum + transaction.amount);
 
-    final totalExpense = transactions
-        .where((transaction) => transaction.type == TransactionType.expense)
-        .fold(0.0, (sum, transaction) => sum + transaction!.amount);
+
+  final totalExpense = transactions
+      .where((transaction) => transaction.type == TransactionType.expense)
+      .fold(0.0, (sum, transaction) => sum + transaction.amount);
+
 
     return Scaffold(
       appBar: AppBar(
@@ -50,17 +60,18 @@ class _SummaryScreenState extends State<SummaryScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: () {
+            onPressed:(){
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (expenseData) => TransactionHistoryScreen(),
+                  builder: (expenseData) => TransactionHistoryScreen()
                 ),
               );
             },
             icon: Icon(Icons.history),
           ), // iconbutton
         ], // actions
+
       ), // appBar
 
       body: SingleChildScrollView(
@@ -73,7 +84,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
                 'Resumen del mes',
                 style: TextStyle(
                   fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.bold
                 ), // textstyle
               ), // text
 
@@ -81,10 +92,7 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
               Card(
                 child: ListTile(
-                  leading: Icon(
-                    Icons.arrow_upward_outlined,
-                    color: Colors.green,
-                  ),
+                  leading: Icon(Icons.arrow_upward_outlined, color: Colors.green),
                   title: Text('Ingresos'),
                   subtitle: Text('\$${totalIncome.toStringAsFixed(2)}'),
                 ), // listtile
@@ -94,12 +102,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
               Card(
                 child: ListTile(
-                  leading: Icon(
-                    Icons.arrow_downward_outlined,
-                    color: Colors.red,
-                  ),
+                  leading: Icon(Icons.arrow_downward_outlined, color: Colors.red),
                   title: Text('Gastos'),
-                  subtitle: Text('\$${totalExpense.toStringAsFixed(2)}'),
+                  subtitle:  Text('\$${totalExpense.toStringAsFixed(2)}'),
                 ), // listtile
               ),
 
@@ -111,7 +116,8 @@ class _SummaryScreenState extends State<SummaryScreen> {
 
               Center(
                 child: ElevatedButton.icon(
-                  onPressed: () {
+                  onPressed: (){
+                    
                     /*
                     Navigator.push(
                       context,
@@ -119,10 +125,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         builder: (context) => TransactionFormScreen()
                       ), // materialpageroute
                     );
-                    */
+                    */ 
+
 
                     Navigator.pushNamed(context, AppRoutes.addTransaction);
-                  },
+
+
+                  }, 
                   icon: Icon(Icons.add),
                   label: Text(
                     'Añadir transaccion',
@@ -133,11 +142,16 @@ class _SummaryScreenState extends State<SummaryScreen> {
                     ),
                   ),
                 ), // elevatedButton
+
               ), // center
+
             ], // children
           ), // column
+
         ), // padding
       ), // SingleChildScrollView
+
     ); // scaffold
   }
 }
+
