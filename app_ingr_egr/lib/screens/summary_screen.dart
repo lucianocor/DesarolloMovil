@@ -23,14 +23,21 @@ class SummaryScreen extends StatefulWidget {
 }
 
 
-class _SummaryScreenState extends State<SummaryScreen>{
+class _SummaryScreenState extends State<SummaryScreen> {
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    Future.microtask(() =>
-      context.read<TransactionProvider>().loadTransactions()
-    );
+    //Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
+
+    @override
+    void initState() {
+      super.initState();
+      Future.microtask(
+        () => context.read<TransactionProvider>().loadTransactions(),
+      );
+    }
   }
+
 
   
   @override
@@ -51,9 +58,28 @@ class _SummaryScreenState extends State<SummaryScreen>{
   final totalExpense = transactions
       .where((transaction) => transaction.type == TransactionType.expense)
       .fold(0.0, (sum, transaction) => sum + transaction.amount);
-
-
-    return Scaffold(
+      
+      
+     
+      return WillPopScope(
+      onWillPop: () async {
+      final exit = await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+      title: Text('Salir'),
+      content: Text('¿Desea salir de la aplicación?'),
+      actions: [
+      TextButton(onPressed:()=>Navigator.pop(context, false), child:
+      Text('Cancelar')),
+      TextButton(onPressed:()=>Navigator.pop(context, true), child:
+      Text('Salir')),
+      ],
+      ),
+      );
+      return exit ?? false;
+    },
+    
+    child: Scaffold(
       appBar: AppBar(
         title: Text('Resumen de Gastos'),
         centerTitle: true,
@@ -96,9 +122,15 @@ class _SummaryScreenState extends State<SummaryScreen>{
                   subtitle: Text('\$${totalIncome.toStringAsFixed(2)}'),
                 ), // listtile
               ),
-
+            
               SizedBox(height: 20),
-
+              
+              AnimatedOpacity(
+              duration: Duration(milliseconds: 500),
+              opacity: transactions.isEmpty ? 0 : 1,
+              child: ExpenseChart(),
+              ),
+              
               Card(
                 child: ListTile(
                   leading: Icon(Icons.arrow_downward_outlined, color: Colors.red),
@@ -149,8 +181,9 @@ class _SummaryScreenState extends State<SummaryScreen>{
 
         ), // padding
       ), // SingleChildScrollView
-
+    ),
     ); // scaffold
   }
+  
 }
 

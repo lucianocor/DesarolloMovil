@@ -40,9 +40,21 @@ class DatabaseHelper{
         category TEXT,
         amount REAL,
         type TEXT,
-        date TEXT
+        date TEXT,
+        description TEXT
       )
     ''');
+    await db.execute('''
+      CREATE TABLE categorias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT
+      )
+    ''');
+    await db.insert('categorias', {'nombre': 'Comida'});
+    await db.insert('categorias', {'nombre': 'Transporte'});
+    await db.insert('categorias', {'nombre': 'Entretenimiento'});
+    await db.insert('categorias', {'nombre': 'Trabajo'});
+    await db.insert('categorias', {'nombre': 'Otros'});
   }
 
   Future<void> insertTransaction(my_transaction.Transaction transaction) async {
@@ -65,6 +77,7 @@ class DatabaseHelper{
         amount: maps[i]['amount'],
         type: maps[i]['type'] == 'income' ? my_transaction.TransactionType.income : my_transaction.TransactionType.expense,
         date: DateTime.parse(maps[i]['date']),
+        description: maps[i]['description'] ?? '',
       );
     });
 
@@ -90,6 +103,11 @@ class DatabaseHelper{
       whereArgs: [transaction.id],
     );
   }
-
+  
+  Future<List<String>> getCategories() async {
+    final db = await database;
+    final result = await db.query('categorias');
+    return result.map((e) => e['nombre'] as String).toList();
+  }
 
 }

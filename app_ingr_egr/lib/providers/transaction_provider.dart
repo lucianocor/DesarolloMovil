@@ -14,12 +14,7 @@ class TransactionProvider with ChangeNotifier{
 
 
   Future<void> loadTransactions() async {
-    _isLoading = true;
-    notifyListeners();
-    
     _transactions = await _dbHelper.getTransactions();
-    
-    _isLoading = false;
     notifyListeners();
   }
 
@@ -68,5 +63,7 @@ class TransactionProvider with ChangeNotifier{
     notifyListeners();
   }  
 
-    
+    Future<List<String>> getCategories() async {
+    return await _dbHelper.getCategories();
+  }
 }

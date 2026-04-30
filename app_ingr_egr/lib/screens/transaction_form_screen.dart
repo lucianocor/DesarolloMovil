@@ -21,25 +21,61 @@ class _TransactionFormScreenState extends State<TransactionFormScreen>{
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  
+  // Ejercicio 3
+  Transaction? _transaccionAEditar;
 
-  String _selectedCategory = 'Comida';
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final modalRoute = ModalRoute.of(context);
+    if (modalRoute != null && modalRoute.settings.arguments != null) {
+      _transaccionAEditar = modalRoute.settings.arguments as Transaction;
+      
+      if (_amountController.text.isEmpty) {
+        _amountController.text = _transaccionAEditar!.amount.toString();
+        _descriptionController.text = _transaccionAEditar!.description;
+        _selectedType = _transaccionAEditar!.type;
+      }
+    }
+  }
+
   TransactionType _selectedType = TransactionType.expense;
+  
+  // Ejercicio 7
+  String? _selectedCategory;
+  List<String> _categories = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _cargarCategorias();
+  }
 
-  final List<String> _categories = [
-    'Comida',
-    'Transporte',
-    'Entretenimiento',
-    'Trabajo',
-    'Otros'
-  ];
+  Future<void> _cargarCategorias() async {
+    final provider = context.read<TransactionProvider>();
+    final cats = await provider.getCategories();
+    setState(() {
+      _categories = cats;
+
+      if (_categories.isNotEmpty && _selectedCategory == null) {
+        if (_transaccionAEditar != null) {
+          _selectedCategory = _transaccionAEditar!.category;
+        } else {
+          _selectedCategory = _categories.first;
+        }
+      }
+      
+    });
+  }
 
   @override
   Widget build(BuildContext context){
     return Scaffold(
       appBar: AppBar(
         title: Text('Registrar transaccion'),
-      ), // appbar
+      ), 
 
       body: SafeArea(
         child: SingleChildScrollView(
@@ -49,21 +85,29 @@ class _TransactionFormScreenState extends State<TransactionFormScreen>{
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextFormField(
+                TextFormField( 
                   controller: _amountController,
                   decoration: InputDecoration(labelText: 'Monto'),
                   keyboardType: TextInputType.number,
-                  validator: (value){
-                    if (value == null || value.isEmpty){
-                      return 'Por favor ingrese un monto';
+                  validator: (value) {  // Ejercicio 4
+                    if (value == null || value.isEmpty) {
+                      return 'Ingrese un monto';
                     }
-
+                    
+                    final number = double.tryParse(value);
+                    if (number == null) {
+                      return 'Ingrese un número válido';
+                    }
+                    
+                    if (number <= 0) {
+                      return 'El monto debe ser mayor a 0';
+                    }
+                    
                     return null;
                   },
-                ), // textformfield
+                ),
 
                 SizedBox(height: 20),
-
 
                 TextFormField(
                   controller: _descriptionController,
@@ -75,33 +119,38 @@ class _TransactionFormScreenState extends State<TransactionFormScreen>{
 
                     return null;
                   },
-                ), // textformfield
+                ),
 
                 SizedBox(height: 20),
+                // Ejercicio 7
+                _categories.isEmpty 
+                  ? const CircularProgressIndicator()
+                  :DropdownButtonFormField(
+                    value: _selectedCategory,
+                    decoration: InputDecoration(
+                      labelText: 'Categoria',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, seleccione una categoría';
+                      }
+                      return null;
+                    },  
+                    items: _categories.map((category){
+                      return DropdownMenuItem(
+                        value: category,
+                        child: Text(category)
+                      );
+                    }).toList(),
+                    onChanged: (value){
+                      setState((){
+                        _selectedCategory = value!;
 
-                DropdownButtonFormField(
-                  value: _selectedCategory,
-                  decoration: InputDecoration(
-                    labelText: 'Categoria',
-                  ),  
-                  items: _categories.map((category){
-                    return DropdownMenuItem(
-                      value: category,
-                      child: Text(category)
-                    );
-                  }).toList(),
-                  onChanged: (value){
-                    setState((){
-                      _selectedCategory = value!;
-
-                    });
-                  },
-                ), // dropdown
-
+                      });
+                    },
+                  ),
 
                 SizedBox(height: 20),
-
-                
 
                 /*
                 Row(
@@ -139,8 +188,6 @@ class _TransactionFormScreenState extends State<TransactionFormScreen>{
                 ),
                 */
 
-
-
                 Row(
                   children: [
                     Expanded(
@@ -172,63 +219,56 @@ class _TransactionFormScreenState extends State<TransactionFormScreen>{
 
                 Center(
                   child: 
-
-
                       ElevatedButton(
                         onPressed: () async {
                           if (_formKey.currentState!.validate()) {
 
                             final provider = context.read<TransactionProvider>();
 
-                            if (widget.transaction == null) {
+                            if (_transaccionAEditar == null) {
 
                               await provider.addTransaction(
                                 Transaction(
                                   id: Uuid().v4(),
-                                  category: _selectedCategory,
+                                  category: _selectedCategory!,
                                   amount: double.parse(_amountController.text),
+                                  description: _descriptionController.text,
                                   type: _selectedType,
                                   date: DateTime.now(),
                                 ),
                               );
 
-                            } else {
-
+                            } else { 
                               await provider.updateTransaction(
                                 Transaction(
-                                  id: widget.transaction!.id,
-                                  category: _selectedCategory,
+                                  id: _transaccionAEditar!.id,
+                                  category: _selectedCategory!,
                                   amount: double.parse(_amountController.text),
+                                  description: _descriptionController.text,
                                   type: _selectedType,
-                                  date: widget.transaction!.date,
+                                  date: _transaccionAEditar!.date,
                                 ),
                               );
 
                             }
 
-                            if (!mounted) return;
-
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  widget.transaction == null
+                                  _transaccionAEditar == null
                                       ? 'Transacción registrada'
                                       : 'Transacción editada',
                                 ),
-                                duration: Duration(seconds: 1),
                               ),
                             );
 
-                            // Esperar un momento para que se muestre el SnackBar
-                            await Future.delayed(Duration(milliseconds: 300));
-
-                            if (mounted) {
-                              Navigator.pop(context);
+                            if (context.mounted) {
+                              Navigator.pop(context); 
                             }
                           }
                         },
                         child: Text(
-                          widget.transaction == null
+                          _transaccionAEditar == null
                               ? 'Añadir Transacción'
                               : 'Editar Transacción',
                         ),
@@ -236,16 +276,16 @@ class _TransactionFormScreenState extends State<TransactionFormScreen>{
 
 
 
-                ), // center
+                ),
 
-              ], // children
-            ), // column
+              ],
+            ),
 
-          ), // form
+          ),
         ),
-   ), // singlechildScrollview
+   ),
 
 
-    ); // scaffold
+    );
   }
 }
