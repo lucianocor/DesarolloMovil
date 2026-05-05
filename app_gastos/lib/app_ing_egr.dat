@@ -1,0 +1,1016 @@
+
+#### main.dart ####
+
+import 'package:flutter/material.dart';
+import 'package:app_ing_egr/screens/summary_screen.dart';
+import 'package:app_ing_egr/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:app_ing_egr/providers/transaction_provider.dart';
+import 'package:app_ing_egr/routes/app_routes.dart';
+
+void main() => runApp(
+  MultiProvider(
+    providers:[
+      ChangeNotifierProvider(create: (_) => TransactionProvider())
+    ],
+    child: MyApp(),  
+  ) // multiprovider
+); 
+
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context) {
+    
+    /*
+    return MaterialApp(
+      title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      home: Scaffold(
+        body: SummaryScreen(),
+      ), // scaffold
+    ); // materialApp
+    */
+
+
+    return MaterialApp(
+      title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      initialRoute: AppRoutes.home,
+      routes: AppRoutes.routes,
+    );
+
+
+  }
+}
+
+
+### app_routes.dart ###
+
+import 'package:flutter/material.dart';
+import 'package:app_ing_egr/screens/summary_screen.dart';
+import 'package:app_ing_egr/screens/transaction_form_screen.dart';
+import 'package:app_ing_egr/screens/transaction_history_screen.dart';
+
+class AppRoutes {
+  static const home = '/';
+  static const addTransaction = '/add-transaction';
+  static const history = '/history';
+
+  static Map<String, WidgetBuilder> routes = {
+    home: (_) => const SummaryScreen(),
+    addTransaction: (_) => TransactionFormScreen(),
+    history: (_) => const TransactionHistoryScreen(),
+  };
+}
+
+
+
+#### expense_data.dart ####
+class ExpenseData{
+  final String category;
+  final double amount;
+
+
+  ExpenseData(this.category, this.amount);
+
+}
+
+
+
+#### transaction.dart ####
+
+
+enum TransactionType{
+  income,
+  expense
+}
+
+class Transaction {
+  String id;
+  String category;
+  double amount;
+  TransactionType type;
+  DateTime date;
+
+  Transaction({required this.id, required this.category, required this.amount, required this.type, required this.date});
+
+  Map<String, dynamic> toMap(){
+    return {
+      'id': id,
+      'category': category,
+      'amount': amount,
+      'type': type == TransactionType.income ? 'income' : 'expense',
+      'date': date.toIso8601String()
+    };
+  }
+
+}
+
+
+
+
+
+#### transaction_provider.dart ####
+
+import 'package:flutter/material.dart';
+import 'package:app_ing_egr/models/transaction.dart';
+import 'package:app_ing_egr/services/database_helper.dart';
+
+
+class TransactionProvider with ChangeNotifier{
+  
+  List<Transaction> _transactions = [];
+  final DatabaseHelper _dbHelper = DatabaseHelper();
+
+  List<Transaction> get transactions => _transactions;
+
+
+  Future<void> loadTransactions() async {
+    _transactions = await _dbHelper.getTransactions();
+    notifyListeners();
+  }
+
+
+  /*
+  void addTransaction(Transaction transaction) async {
+    _transactions.add(transaction);
+    await _dbHelper.insertTransaction(transaction);
+    notifyListeners();
+  }
+  */
+
+
+ /*
+  void updateTransaction(Transaction transaction) async {
+    int index = _transactions.indexWhere((t) => t.id == transaction.id);
+    _transactions[index] = transaction;
+
+    await _dbHelper.updateTransaction(transaction);
+    notifyListeners();
+
+  }
+  */
+
+
+  
+  void deleteTransaction(String id) async {
+    _transactions.removeWhere((transaction) => transaction.id == id);
+    await _dbHelper.deleteTransaction(id);
+    notifyListeners();
+  }
+
+ 
+
+  Future<void> addTransaction(Transaction transaction) async {
+    _transactions.add(transaction);
+    await _dbHelper.insertTransaction(transaction);
+    notifyListeners();
+  }
+
+  Future<void> updateTransaction(Transaction transaction) async {
+    int index = _transactions.indexWhere((t) => t.id == transaction.id);
+    _transactions[index] = transaction;
+
+    await _dbHelper.updateTransaction(transaction);
+    notifyListeners();
+  }  
+
+    
+}
+
+
+
+
+
+
+#### summary_screen.dart ####
+
+import 'package:app_ing_egr/models/transaction.dart';
+import 'package:app_ing_egr/providers/transaction_provider.dart';
+
+
+import 'package:app_ing_egr/screens/transaction_form_screen.dart';
+import 'package:app_ing_egr/screens/transaction_history_screen.dart';
+
+import 'package:app_ing_egr/widgets/expense_chart.dart';
+
+import 'package:app_ing_egr/routes/app_routes.dart';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+
+
+class SummaryScreen extends StatefulWidget {
+  const SummaryScreen({super.key});
+
+  @override
+  State<SummaryScreen> createState() => _SummaryScreenState();
+
+}
+
+
+class _SummaryScreenState extends State<SummaryScreen>{
+  @override
+  void initState(){
+    super.initState();
+    //Provider.of<TransactionProvider>(context, listen: false).loadTransactions();
+
+    @override
+    void initState() {
+      super.initState();
+      Future.microtask(() =>
+      context.read<TransactionProvider>().loadTransactions()
+      );
+    }
+
+
+  }
+
+  
+  @override
+  Widget build(BuildContext context) {
+    
+    //final transactionProvider = Provider.of<TransactionProvider>(context);
+    //final transactions = context.watch<TransactionProvider>().transactions;
+
+
+    final transactions = context.watch<TransactionProvider>().transactions;
+    
+
+    final totalIncome = transactions
+      .where((transaction) => transaction.type == TransactionType.income)
+      .fold(0.0, (sum, transaction) => sum + transaction.amount);
+
+
+  final totalExpense = transactions
+      .where((transaction) => transaction.type == TransactionType.expense)
+      .fold(0.0, (sum, transaction) => sum + transaction.amount);
+
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Resumen de Gastos'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed:(){
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (expenseData) => TransactionHistoryScreen()
+                ),
+              );
+            },
+            icon: Icon(Icons.history),
+          ), // iconbutton
+        ], // actions
+
+      ), // appBar
+
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Resumen del mes',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold
+                ), // textstyle
+              ), // text
+
+              SizedBox(height: 20),
+
+              Card(
+                child: ListTile(
+                  leading: Icon(Icons.arrow_upward_outlined, color: Colors.green),
+                  title: Text('Ingresos'),
+                  subtitle: Text('\$${totalIncome.toStringAsFixed(2)}'),
+                ), // listtile
+              ),
+
+              SizedBox(height: 20),
+
+              Card(
+                child: ListTile(
+                  leading: Icon(Icons.arrow_downward_outlined, color: Colors.red),
+                  title: Text('Gastos'),
+                  subtitle:  Text('\$${totalExpense.toStringAsFixed(2)}'),
+                ), // listtile
+              ),
+
+              SizedBox(height: 20),
+
+              ExpenseChart(), // el widget (grafico)
+
+              SizedBox(height: 20),
+
+              Center(
+                child: ElevatedButton.icon(
+                  onPressed: (){
+                    
+                    /*
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TransactionFormScreen()
+                      ), // materialpageroute
+                    );
+                    */ 
+
+
+                    Navigator.pushNamed(context, AppRoutes.addTransaction);
+
+
+                  }, 
+                  icon: Icon(Icons.add),
+                  label: Text(
+                    'Añadir transaccion',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ), // elevatedButton
+
+              ), // center
+
+            ], // children
+          ), // column
+
+        ), // padding
+      ), // SingleChildScrollView
+
+    ); // scaffold
+  }
+}
+
+
+
+
+
+
+#### transaction_form_screen.dart ####
+
+import 'package:flutter/material.dart';
+
+import 'package:app_ing_egr/theme/app_theme.dart';
+import 'package:app_ing_egr/providers/transaction_provider.dart';
+import 'package:app_ing_egr/models/transaction.dart';
+
+import 'package:uuid/uuid.dart';
+import 'package:provider/provider.dart';
+
+
+class TransactionFormScreen extends StatefulWidget{
+  final Transaction? transaction; 
+
+  TransactionFormScreen({super.key, this.transaction});
+
+  @override
+  State<TransactionFormScreen> createState() => _TransactionFormScreenState();
+}
+
+class _TransactionFormScreenState extends State<TransactionFormScreen>{
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+
+  String _selectedCategory = 'Comida';
+  TransactionType _selectedType = TransactionType.expense;
+
+
+  final List<String> _categories = [
+    'Comida',
+    'Transporte',
+    'Entretenimiento',
+    'Trabajo',
+    'Otros'
+  ];
+
+  @override
+  Widget build(BuildContext context){
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Registrar transaccion'),
+      ), // appbar
+
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _amountController,
+                  decoration: InputDecoration(labelText: 'Monto'),
+                  keyboardType: TextInputType.number,
+                  validator: (value){
+                    if (value == null || value.isEmpty){
+                      return 'Por favor ingrese un monto';
+                    }
+
+                    return null;
+                  },
+                ), // textformfield
+
+                SizedBox(height: 20),
+
+
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(labelText: 'Descripcion'),                
+                  validator: (value){
+                    if (value == null || value.isEmpty){
+                      return 'Por favor ingrese una descripcion';
+                    }
+
+                    return null;
+                  },
+                ), // textformfield
+
+                SizedBox(height: 20),
+
+                DropdownButtonFormField(
+                  value: _selectedCategory,
+                  decoration: InputDecoration(
+                    labelText: 'Categoria',
+                  ),  
+                  items: _categories.map((category){
+                    return DropdownMenuItem(
+                      value: category,
+                      child: Text(category)
+                    );
+                  }).toList(),
+                  onChanged: (value){
+                    setState((){
+                      _selectedCategory = value!;
+
+                    });
+                  },
+                ), // dropdown
+
+
+                SizedBox(height: 20),
+
+                
+
+                /*
+                Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile(
+                        title: Text('Gasto'),
+                        value: TransactionType.expense,
+                        groupValue: _selectedType,
+                        onChanged: (TransactionType? value){
+                          setState((){
+                            _selectedType = value!;
+                          }); // setstate
+                        },
+                      ), // radiolisttile
+                    ), // expanded
+
+                    SizedBox(height: 20),
+
+                    Expanded(
+                      child: RadioListTile(
+                        title: Text('Ingreso'),
+                        value: TransactionType.income,
+                        groupValue: _selectedType,
+                        onChanged: (TransactionType? value){
+                          setState((){
+                            _selectedType = value!;
+                          }); // setstate
+                        },
+                      ), // radiolisttile
+                    ), // expanded
+
+
+                  ], // children
+                ),
+                */
+
+
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile(
+                        title: const Text('Gasto'),
+                        value: TransactionType.expense,
+                        groupValue: _selectedType,
+                        onChanged: (value) {
+                          setState(() => _selectedType = value!);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: RadioListTile(
+                        title: const Text('Ingreso'),
+                        value: TransactionType.income,
+                        groupValue: _selectedType,
+                        onChanged: (value) {
+                          setState(() => _selectedType = value!);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+
+
+                SizedBox(height: 20),
+
+                Center(
+                  child: 
+
+
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (_formKey.currentState!.validate()) {
+
+                            final provider = context.read<TransactionProvider>();
+
+                            if (widget.transaction == null) {
+
+                              await provider.addTransaction(
+                                Transaction(
+                                  id: Uuid().v4(),
+                                  category: _selectedCategory,
+                                  amount: double.parse(_amountController.text),
+                                  type: _selectedType,
+                                  date: DateTime.now(),
+                                ),
+                              );
+
+                            } else {
+
+                              await provider.updateTransaction(
+                                Transaction(
+                                  id: widget.transaction!.id,
+                                  category: _selectedCategory,
+                                  amount: double.parse(_amountController.text),
+                                  type: _selectedType,
+                                  date: widget.transaction!.date,
+                                ),
+                              );
+
+                            }
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  widget.transaction == null
+                                      ? 'Transacción registrada'
+                                      : 'Transacción editada',
+                                ),
+                              ),
+                            );
+
+                            Navigator.pop(context);
+                          }
+                        },
+                        child: Text(
+                          widget.transaction == null
+                              ? 'Añadir Transacción'
+                              : 'Editar Transacción',
+                        ),
+                      )
+
+
+
+                ), // center
+
+              ], // children
+            ), // column
+
+          ), // form
+        ),
+   ), // singlechildScrollview
+
+
+    ); // scaffold
+  }
+}
+
+
+
+
+#### transaction_history_screen.dart ####
+
+
+import 'package:flutter/material.dart';
+
+import 'package:app_ing_egr/models/transaction.dart';
+import 'package:app_ing_egr/providers/transaction_provider.dart';
+import 'package:app_ing_egr/screens/transaction_form_screen.dart';
+
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+
+
+class TransactionHistoryScreen extends StatelessWidget {
+  
+  const TransactionHistoryScreen({super.key});
+
+   @override
+  Widget build(BuildContext context) {
+    final transactionProvider = Provider.of<TransactionProvider>(context);
+    final transactions = transactionProvider.transactions;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Historial de transacciones'),
+        centerTitle: true,
+      ), // appbar
+
+
+      body: transactions.isEmpty ? Center(child: Text('No hay transacciones registradas'))
+      : ListView.builder(
+        itemCount: transactions.length,
+        itemBuilder: (context, index) {
+          final transaction = transactions[index];
+          return Card(
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: ListTile(
+              leading: Icon(
+                transaction.type == TransactionType.income ? Icons.arrow_upward_outlined : Icons.arrow_downward_outlined,
+                color: transaction.type == TransactionType.income ? Colors.green : Colors.red,
+              ), // icon
+              
+              title: Text(transaction.category),
+              subtitle: Text(
+                DateFormat('yMMd').format(transaction.date),
+
+              ), // text
+
+              trailing: Text(
+                '\$${transaction.amount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: transaction.type == TransactionType.income ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ), // textstyle
+              ), // text
+
+              onTap:(){
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (context) => TransactionFormScreen(
+                    transaction: transaction
+                    
+                  )
+                )); // 
+              },
+
+              onLongPress: () {
+                transactionProvider.deleteTransaction(transaction.id);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('transaction eliminada')
+                  )
+                ); // scaffoldmessenger
+
+              }, // onlongpress
+
+            ), // listtile
+
+          ); // card
+
+        }, // itembuilder
+      
+      )); // scaffold
+ }
+}
+
+
+
+#### database_helper.dart ####
+
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import 'package:app_ing_egr/models/transaction.dart' as my_transaction;
+
+
+
+class DatabaseHelper{
+  static final DatabaseHelper _instance = DatabaseHelper._internal();
+  Database? _database;
+
+  factory DatabaseHelper(){
+    return _instance;
+  }
+
+  DatabaseHelper._internal();
+
+  Future<Database> get database async {
+    if (_database !=null){
+      return _database!;
+    } else {
+      _database = await _initDatabase();
+      return _database!;
+    }
+  }
+
+  Future<Database> _initDatabase() async{
+    String path = join(await getDatabasesPath(), 'transactions.db');
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _onCreate,
+    );
+  }
+
+
+  Future<void>  _onCreate(Database db, int version) async {
+    await db.execute('''
+      CREATE TABLE transactions (
+        id TEXT PRIMARY KEY,
+        category TEXT,
+        amount REAL,
+        type TEXT,
+        date TEXT
+      )
+    ''');
+  }
+
+  Future<void> insertTransaction(my_transaction.Transaction transaction) async {
+    final db = await database;
+    await db.insert(
+      'transactions',
+      transaction.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+  
+
+  Future<List<my_transaction.Transaction>> getTransactions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('transactions');
+    return List.generate(maps.length, (i){
+      return my_transaction.Transaction(
+        id: maps[i]['id'],
+        category: maps[i]['category'],
+        amount: maps[i]['amount'],
+        type: maps[i]['type'] == 'income' ? my_transaction.TransactionType.income : my_transaction.TransactionType.expense,
+        date: DateTime.parse(maps[i]['date']),
+      );
+    });
+
+  }
+
+
+  Future<void> deleteTransaction(String id) async {
+    final db = await database;
+    await db.delete(
+      'transactions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+
+  Future<void> updateTransaction(my_transaction.Transaction transaction) async {
+    final db = await database;
+    await db.update(
+      'transactions',
+      transaction.toMap(),
+      where: 'id = ?',
+      whereArgs: [transaction.id],
+    );
+  }
+
+
+}
+
+
+
+
+#### expense_chart.dart ####
+
+import 'package:app_ing_egr/models/transaction.dart';
+import 'package:app_ing_egr/providers/transaction_provider.dart';
+
+
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
+
+
+class ExpenseChart extends StatelessWidget {
+  const ExpenseChart({super.key});
+
+  // 🔧 intervalo dinámico
+  double _getInterval(List<double> values) {
+    if (values.isEmpty) return 1;
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    return (maxValue / 5).ceilToDouble();
+  }
+
+  // 🔧 maxY con margen
+  double _getMaxY(List<double> values) {
+    if (values.isEmpty) return 10;
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    return maxValue * 1.2;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final transactionProvider = Provider.of<TransactionProvider>(context);
+    final transactions = transactionProvider.transactions;
+
+    // Filtrado correcto
+    final expenses = transactions
+        .where((t) => t.type == TransactionType.expense)
+        .toList();
+
+    // Aggregation por categoría
+    final Map<String, double> categoryTotals = {};
+    for (var t in expenses) {
+      categoryTotals[t.category] =
+          (categoryTotals[t.category] ?? 0) + t.amount;
+    }
+
+    final categories = categoryTotals.keys.toList();
+    final values = categoryTotals.values.toList();
+
+    print(transactions.length);
+    print(expenses.length);
+    //print(categoryTotals);    
+    debugPrint(categoryTotals.toString());
+
+
+    // caso sin datos
+    if (categories.isEmpty) {
+      return const SizedBox(
+        height: 200,
+        child: Center(child: Text('Sin datos')),
+      );
+    }
+
+    return SizedBox(
+      height: 260,
+      child: BarChart(
+        BarChartData(
+          maxY: _getMaxY(values),
+
+          // Bordes (solo izquierda + abajo)
+          borderData: FlBorderData(
+            show: true,
+            border: const Border(
+              left: BorderSide(),
+              bottom: BorderSide(),
+              top: BorderSide.none,
+              right: BorderSide.none,
+            ),
+          ),
+
+          // Grid
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: _getInterval(values),
+          ),
+
+          // Ejes
+          titlesData: FlTitlesData(
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+
+            // eje X
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) {
+                  if (value.toInt() >= categories.length) {
+                    return const SizedBox();
+                  }
+
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      categories[value.toInt()],
+                      style: const TextStyle(fontSize: 10),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // eje Y
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 42,
+                interval: _getInterval(values),
+                getTitlesWidget: (value, meta) {
+                  return Text(
+                    value.toInt().toString(),
+                    style: const TextStyle(fontSize: 10),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Tooltip
+          barTouchData: BarTouchData(
+            enabled: true,
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final category = categories[group.x.toInt()];
+                final value = rod.toY;
+
+                return BarTooltipItem(
+                  '$category\n\$${value.toStringAsFixed(0)}',
+                  const TextStyle(color: Colors.white),
+                );
+              },
+            ),
+          ),
+
+          // Barras
+          barGroups: List.generate(categories.length, (index) {
+            final value = values[index];
+
+            return BarChartGroupData(
+              x: index,
+              barRods: [
+                BarChartRodData(
+                  toY: value,
+                  width: 18,
+                  borderRadius: BorderRadius.circular(6),
+                  color: Colors.blue,
+                ),
+              ],
+              showingTooltipIndicators: [0],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+#### app_theme.dart ####
+
+
+import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+
+class AppTheme {
+  // definimos los colores principales de nuestra app todolist
+
+  static const Color primaryColor = Color(0xFF6200EE);
+  static const Color accentColor = Color(0xFF03DAC5);
+  static const Color backgroundColor = Color(0xFFF2F2F2);
+
+  ///definimos el tema global de app
+  static ThemeData get lightTheme {
+    return ThemeData(
+        primaryColor: primaryColor,
+        scaffoldBackgroundColor: backgroundColor,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.indigo,
+          elevation: 0,
+          titleTextStyle: TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+          iconTheme: IconThemeData(color: Colors.white),
+        ),
+        floatingActionButtonTheme:
+            const FloatingActionButtonThemeData(backgroundColor: Colors.indigo),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.indigo,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ))));
+  }
+}
+
+
+
+
